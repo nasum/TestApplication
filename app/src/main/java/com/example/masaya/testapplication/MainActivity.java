@@ -17,6 +17,9 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.example.masaya.testapplication.db.DataBaseHelper;
+import com.example.masaya.testapplication.db.Todo;
+
 import java.util.ArrayList;
 
 /**
@@ -38,16 +41,38 @@ public class MainActivity extends Activity{
 
         final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, new ArrayList<String>());
 
-        Cursor cursor = db.query("todo", null, null, null, null, null, "id ASC");
+        Todo todo = new Todo();
+        ArrayList<Todo> todoList = todo.list(db, null, null, null);
+        db.close();
 
-        while(cursor.moveToNext()){
-            arrayAdapter.add(cursor.getString(1));
+        for(Todo todoItem: todoList){
+            arrayAdapter.add(todoItem.todo);
         }
 
         lv.setAdapter(arrayAdapter);
         lv.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> parent, View view, final int position, long id) {
+
+                ArrayAdapter adapter = (ArrayAdapter) lv.getAdapter();
+                adapter.remove(adapter.getItem(position));
+
+                SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+                Todo todo = new Todo();
+//                TODO IDの指定とかどうするかな
+//                todo.todo = task;
+//                todo.delete(db);
+                db.close();
+
+                return false;
+            }
+        });
+
+        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, final int position, long id) {
                 LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
                 final View layout = inflater.inflate(R.layout.edit_dialog, (ViewGroup) findViewById(R.id.dialog_layout));
 
@@ -58,21 +83,22 @@ public class MainActivity extends Activity{
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
 
-                        SQLiteDatabase db = dbHelper.getWritableDatabase();
-
                         EditText eText = (EditText) layout.findViewById(R.id.task_text);
 
                         String task = eText.getText().toString();
 
                         ArrayAdapter adapter = (ArrayAdapter) lv.getAdapter();
+
                         adapter.remove(adapter.getItem(position));
                         adapter.insert(task, position);
 
-                        ContentValues cv = new ContentValues();
-                        cv.put("id", position);
-                        cv.put("todo", task);
+                        SQLiteDatabase db = dbHelper.getWritableDatabase();
 
-                        db.replace("todo", null, cv);
+                        Todo todo = new Todo();
+                        todo.id = position;
+                        todo.todo = task;
+                        todo.put(db);
+
                         db.close();
                     }
                 });
@@ -91,7 +117,6 @@ public class MainActivity extends Activity{
                 eText.setText(item, TextView.BufferType.EDITABLE);
 
                 dialog.show();
-                return false;
             }
         });
 
@@ -102,14 +127,14 @@ public class MainActivity extends Activity{
                 String text = editor.getText().toString();
 
                 if (text.length() > 0) {
-                    SQLiteDatabase db = dbHelper.getWritableDatabase();
                     editor.getText().clear();
                     arrayAdapter.add(text);
-                    ContentValues cv = new ContentValues();
-                    cv.put("id", arrayAdapter.getCount() - 1);
-                    cv.put("todo", text);
 
-                    db.insert("todo", null, cv);
+                    SQLiteDatabase db = dbHelper.getWritableDatabase();
+                    Todo todo = new Todo();
+                    todo.todo = text;
+                    todo.put(db);
+
                     db.close();
                 }
             }
